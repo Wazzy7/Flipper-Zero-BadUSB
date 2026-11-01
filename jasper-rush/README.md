@@ -31,14 +31,36 @@ python3 -m http.server 8000
   steeds meer punten.
 - Elk vakje dat knalt krijgt een **multiplier** die verdubbelt (×2 → ×128). Op
   dezelfde plek blijven knallen = enorme scores.
-- **5 op een rij** laat een **Jasper-tegel** verschijnen (en soms valt er
-  spontaan eentje binnen).
-- **Tik op een Jasper-tegel** om een kruis (hele rij + kolom) weg te blazen:
-  **JASPER RUSH!** — met een grote animatie van Jasper zelf.
-- Haal de **doelscore** binnen je aantal zetten om naar het volgende level te
-  gaan. Elk level heeft een hogere doelscore en iets meer zetten. Raak je
-  zonder het doel te halen door je zetten heen, dan is het game over. Je
+## Power-ups
+
+Bepaalde combinaties maken een speciale tegel die op het bord blijft staan. Tik
+erop om 'm af te vuren — power-ups **ketting-reageren** door elkaar heen voor
+enorme combo's:
+
+- **4 op een rij** → **streep-snoep**: blaast de hele rij (horizontaal) of kolom
+  (verticaal) weg, met een lichtstraal.
+- **Kruis / L-vorm** (horizontaal + verticaal tegelijk) → **bom**: 3×3 explosie
+  met een shockwave.
+- **5 op een rij** → **Jasper-tegel**: blaast rij + kolom weg met de grote
+  **JASPER RUSH!**-animatie van Jasper zelf.
+
+Je kunt een power-up ook activeren door 'm in een gewone match mee te nemen.
+
+## Levels
+
+- Haal de **doelscore** binnen je aantal zetten. Lukt dat, dan verschijnt een
+  **level-voltooid-scherm** met een **zetten-bonus** (overgebleven zetten leveren
+  extra punten op) en het volgende doel.
+- Elk level heeft een hogere doelscore en iets meer zetten.
+- Raak je zonder het doel te halen door je zetten heen, dan is het game over. Je
   topscore wordt lokaal bewaard.
+
+## Visuele effecten
+
+Glanzende snoepvormen, deeltjes-explosies met sterretjes, screen-shake,
+lichtstralen (beams) bij streep-snoep, shockwaves bij bommen, een witte flits bij
+grote scores, combo-popups, oplopende multiplier-labels, confetti bij een
+level-up, en een animerende candy-lucht met zwevende sprinkles.
 
 ## Techniek
 

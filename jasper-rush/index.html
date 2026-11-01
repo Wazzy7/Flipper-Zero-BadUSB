@@ -84,8 +84,10 @@
     <p>Ruil snoepjes en maak rijen van 3+ gelijke. Elke keer dat een vakje knalt stijgt de <b>multiplier</b> (×2 → ×128) — ketting-combo's leveren enorme scores op!</p>
     <div class="list">
       🍬 Veeg of tik twee aangrenzende snoepjes om te ruilen<br>
-      ✨ 5 op een rij = een <b>Jasper-tegel</b> verschijnt<br>
-      💥 Tik op <b>Jasper</b> om een kruis weg te blazen: <b>JASPER RUSH!</b><br>
+      ➡️ <b>4 op een rij</b> = een <b>streep-snoep</b> (blaast rij/kolom weg)<br>
+      ✚ Een <b>kruis / L-vorm</b> = een <b>bom</b> (3×3 explosie)<br>
+      ✨ <b>5 op een rij</b> = een <b>Jasper-tegel</b> (rij + kolom)<br>
+      💥 Tik op een power-up om 'm af te vuren — ze ketting-reageren!<br>
       🎯 Haal de doelscore binnen je zetten en ga naar het volgende level
     </div>
     <button class="btn" id="startBtn">Spelen</button>
@@ -97,6 +99,14 @@
     <div class="big" id="overScore">0</div>
     <p id="overMsg"></p>
     <button class="btn" id="retryBtn">Opnieuw</button>
+  </div>
+
+  <div class="overlay hidden" id="levelup">
+    <img id="jface3" alt="Jasper" style="width:84px;height:84px;border-radius:50%;border:4px solid #ffd84d;object-fit:cover;box-shadow:0 0 24px rgba(255,216,77,.8)" />
+    <h1 id="luLevel" class="win">Level voltooid!</h1>
+    <div class="big" id="luBonus"></div>
+    <p id="luNext"></p>
+    <button class="btn" id="luBtn">Volgende level ▶</button>
   </div>
 </div>
 
@@ -112,7 +122,7 @@
   const jimg = new Image(); let jLoaded = false;
   jimg.onload = () => { jLoaded = true; };
   jimg.src = JASPER_IMG;
-  el("jface").src = JASPER_IMG; el("jface2").src = JASPER_IMG;
+  el("jface").src = JASPER_IMG; el("jface2").src = JASPER_IMG; el("jface3").src = JASPER_IMG;
 
   const GRID = 7;
   const NTYPE = 6;            // reguliere snoepjes 0..5
@@ -150,14 +160,14 @@
   let grid=null, cellMult=null, particles=[], floaters=[];
   let phase="idle", phaseT=0, selected=null, swapPair=null, comboMult=1, pendingJasperCols=[];
   let score=0, target=0, movesLeft=0, level=1, best=0, gameState="menu";
-  let shake=0, jasperRush=0, ambient=[];
+  let shake=0, jasperRush=0, flash=0, beams=[], shocks=[], ambient=[];
   let time=0, lastT=0;
 
   try { best=parseInt(localStorage.getItem("jasper_best")||"0",10)||0; } catch(e){}
 
   function randType(){ return Math.floor(Math.random()*NTYPE); }
-  function mkCandy(type,row,col,dyStart){
-    return { type, row, col, dx: col, dy: (dyStart!==undefined?dyStart:row), scale: dyStart!==undefined?0.3:1, clearing:false, ct:0 };
+  function mkCandy(type,row,col,dyStart,special){
+    return { type, row, col, dx: col, dy: (dyStart!==undefined?dyStart:row), scale: dyStart!==undefined?0.3:1, clearing:false, ct:0, special: special||null };
   }
 
   function newBoard() {
@@ -185,11 +195,11 @@
 
   function startLevel(lv){
     level=lv;
-    target = Math.round(1400 * Math.pow(1.55, lv-1));
-    movesLeft = 14 + lv*2;
+    target = Math.round(1500 * Math.pow(1.6, lv-1));
+    movesLeft = 18 + (lv-1)*2;
     newBoard();
     comboMult=1; phase="idle"; phaseT=0; selected=null; swapPair=null; pendingJasperCols=[];
-    particles=[]; floaters=[];
+    particles=[]; floaters=[]; beams=[]; shocks=[]; flash=0; jasperRush=0;
     updateHUD();
   }
   function reset(){
@@ -207,26 +217,34 @@
 
   // ---------- matching ----------
   function findMatches(){
-    const cells=new Set(); const runs=[];
-    // horizontaal
-    for(let r=0;r<GRID;r++){
-      let run=1;
+    const clear=new Set(); const hRuns=[], vRuns=[];
+    // horizontale runs
+    for(let r=0;r<GRID;r++){ let run=1;
       for(let c=1;c<=GRID;c++){
         const same = c<GRID && grid[r][c] && grid[r][c-1] && grid[r][c].type===grid[r][c-1].type && grid[r][c].type<NTYPE;
         if(same) run++;
-        else { if(run>=3){ for(let k=0;k<run;k++) cells.add(r+","+(c-1-k)); if(run>=5) runs.push({r,c:c-1-Math.floor(run/2)}); } run=1; }
+        else { if(run>=3){ const c0=c-run; hRuns.push({r,c0,len:run,type:grid[r][c0].type}); for(let k=0;k<run;k++) clear.add(r+","+(c0+k)); } run=1; }
       }
     }
-    // verticaal
-    for(let c=0;c<GRID;c++){
-      let run=1;
+    // verticale runs
+    for(let c=0;c<GRID;c++){ let run=1;
       for(let r=1;r<=GRID;r++){
         const same = r<GRID && grid[r][c] && grid[r-1][c] && grid[r][c].type===grid[r-1][c].type && grid[r][c].type<NTYPE;
         if(same) run++;
-        else { if(run>=3){ for(let k=0;k<run;k++) cells.add((r-1-k)+","+c); if(run>=5) runs.push({r:r-1-Math.floor(run/2),c}); } run=1; }
+        else { if(run>=3){ const r0=r-run; vRuns.push({c,r0,len:run,type:grid[r0][c].type}); for(let k=0;k<run;k++) clear.add((r0+k)+","+c); } run=1; }
       }
     }
-    return {cells, runs};
+    // power-ups bepalen; special-vakje overleeft (uit clear halen)
+    const specials=[]; const used=new Set();
+    const put=(r,c,special,type)=>{ const key=r+","+c; if(used.has(key)) return; used.add(key); specials.push({r,c,special,type}); clear.delete(key); };
+    // kruising van horizontaal+verticaal (L/T) -> bom
+    for(const h of hRuns) for(const v of vRuns){
+      if(h.r>=v.r0 && h.r<v.r0+v.len && v.c>=h.c0 && v.c<h.c0+h.len) put(h.r, v.c, "bomb", h.type);
+    }
+    // 5+ op een lijn -> Jasper, exact 4 -> streep
+    for(const h of hRuns){ if(h.len>=5) put(h.r, h.c0+Math.floor(h.len/2), "jasper", h.type); else if(h.len===4) put(h.r, h.c0+1, "stripeH", h.type); }
+    for(const v of vRuns){ if(v.len>=5) put(v.r0+Math.floor(v.len/2), v.c, "jasper", v.type); else if(v.len===4) put(v.r0+1, v.c, "stripeV", v.type); }
+    return {clear, specials};
   }
 
   function scoreCell(r,c,mult){
@@ -237,41 +255,92 @@
     return gained;
   }
 
-  function burst(r,c,color){
+  function burst(r,c,color,big){
     const x=cx(c), y=cy(r);
-    const n=6+Math.floor(Math.random()*4);
+    const n=(big?16:8)+Math.floor(Math.random()*6);
     for(let i=0;i<n;i++){
-      const a=Math.random()*7, sp=(1.5+Math.random()*3)*TILE;
-      particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-TILE, life:0.5+Math.random()*0.3, col:color, size:3+Math.random()*4 });
+      const a=Math.random()*7, sp=(1.5+Math.random()*(big?5:3.5))*TILE;
+      particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-TILE, life:0.5+Math.random()*0.4, col:color, size:3+Math.random()*(big?6:4), star:Math.random()<0.35 });
     }
   }
 
-  function clearCells(cells, mult, isJasper){
-    let total=0;
+  function clearCells(cells){
+    let total=0, sx=0, sy=0, n=0;
     cells.forEach(key=>{
       const [r,c]=key.split(",").map(Number);
       const cand=grid[r][c];
       if(!cand || cand.clearing) return;
       cand.clearing=true; cand.ct=0;
-      total += scoreCell(r,c,mult);
-      burst(r,c, cand.type<NTYPE?COLORS[cand.type]:"#ffd84d");
+      total += scoreCell(r,c,1);
+      const col = cand.type<NTYPE?COLORS[cand.type]:"#ffd84d";
+      burst(r,c,col, !!(cand.special||cand.type===JASPER));
+      sx+=cx(c); sy+=cy(r); n++;
     });
-    if(total>0){
-      const first=[...cells][0]; if(first){ const [r,c]=first.split(",").map(Number);
-        floaters.push({x:cx(c),y:cy(r),text:"+"+Math.floor(total),life:1,col:"#fff",big:comboMult>=3||isJasper}); }
+    if(total>0 && n>0){
+      floaters.push({x:sx/n, y:sy/n, text:"+"+Math.floor(total), life:1.1, col:"#fff", big: total>400||comboMult>=3});
+      if(total>700) flash=Math.min(0.55, total/3500);
     }
     return total;
   }
 
+  // ---------- power-ups ----------
+  function specialEffectCells(r,c,cand){
+    const out=[]; const add=(rr,cc)=>{ if(rr>=0&&rr<GRID&&cc>=0&&cc<GRID) out.push(rr+","+cc); };
+    if(cand.type===JASPER){ for(let i=0;i<GRID;i++){ add(r,i); add(i,c); } }
+    else if(cand.special==="stripeH"){ for(let i=0;i<GRID;i++) add(r,i); }
+    else if(cand.special==="stripeV"){ for(let i=0;i<GRID;i++) add(i,c); }
+    else if(cand.special==="bomb"){ for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++) add(r+dr,c+dc); }
+    return out;
+  }
+  function spawnSpecialFx(r,c,cand,created){
+    if(created){ shake=Math.max(shake,6); return; }
+    if(cand.type===JASPER){ jasperRush=1.1; beams.push({dir:"h",i:r,life:0.42,col:"#ffd84d"}); beams.push({dir:"v",i:c,life:0.42,col:"#ffd84d"}); shake=Math.max(shake,12); }
+    else if(cand.special==="stripeH"){ beams.push({dir:"h",i:r,life:0.38,col:COLORS[cand.type]}); shake=Math.max(shake,7); }
+    else if(cand.special==="stripeV"){ beams.push({dir:"v",i:c,life:0.38,col:COLORS[cand.type]}); shake=Math.max(shake,7); }
+    else if(cand.special==="bomb"){ shocks.push({x:cx(c),y:cy(r),rr:0,life:0.42}); shake=Math.max(shake,10); }
+  }
+  function expandClear(initial, protectedSet){
+    const toClear=new Set(); const stack=[...initial];
+    while(stack.length){
+      const key=stack.pop();
+      if(toClear.has(key)) continue;
+      if(protectedSet && protectedSet.has(key)) continue;
+      const [r,c]=key.split(",").map(Number);
+      const cand=grid[r][c];
+      if(!cand || cand.clearing) continue;
+      toClear.add(key);
+      if(cand.special || cand.type===JASPER){
+        spawnSpecialFx(r,c,cand,false);
+        specialEffectCells(r,c,cand).forEach(k=>{ if(!toClear.has(k)) stack.push(k); });
+      }
+    }
+    return toClear;
+  }
+  function createSpecials(specials){
+    const prot=new Set();
+    specials.forEach(s=>{
+      const cand=grid[s.r][s.c]; if(!cand) return;
+      if(s.special==="jasper"){ cand.type=JASPER; cand.special=null; }
+      else cand.special=s.special;
+      cand.clearing=false; cand.scale=0.55;
+      prot.add(s.r+","+s.c);
+      spawnSpecialFx(s.r,s.c,cand,true);
+      floaters.push({x:cx(s.c),y:cy(s.r), text: s.special==="jasper"?"JASPER!":(s.special==="bomb"?"BOM!":"STREEP!"), life:1, col:"#ffd84d", big:true});
+    });
+    return prot;
+  }
+
   // ---------- phase stappen ----------
-  function beginClear(cells, runs, isJasper){
-    comboMult = comboMult || 1;
-    clearCells(cells, isJasper?2:1, isJasper);
-    // queue Jasper-tegels voor runs >=5
-    if(runs) runs.forEach(rn=> pendingJasperCols.push(rn.c));
+  function doClear(initialSet, specials){
+    const prot = (specials&&specials.length)?createSpecials(specials):new Set();
+    const toClear = expandClear(initialSet, prot);
+    clearCells(toClear);
     phase="clear"; phaseT=0;
-    shake = Math.min(14, 4 + comboMult*2 + (isJasper?8:0));
-    if(isJasper){ jasperRush=1.1; }
+    shake = Math.min(20, shake + 3 + comboMult*1.5 + toClear.size*0.25);
+    return toClear.size;
+  }
+  function comboFloater(){
+    if(comboMult>=2) floaters.push({x:W/2, y:by-14, text:"COMBO ×"+comboMult, life:1.2, col:"#ffd84d", big:true});
   }
 
   function applyGravityAndRefill(){
@@ -287,19 +356,12 @@
       }
       // vul rest bovenaan
       let dropIndex=0;
-      const needJasper = pendingJasperCols.includes(c);
       for(let r=write;r>=0;r--){
         const startDy = -1 - dropIndex;
-        let cand;
-        if(needJasper && r===0){ cand=mkCandy(JASPER,r,c,startDy); }
-        else {
-          const t = (Math.random()<0.012) ? JASPER : randType();
-          cand=mkCandy(t,r,c,startDy);
-        }
-        grid[r][c]=cand; dropIndex++;
+        const t = (Math.random()<0.008) ? JASPER : randType();
+        grid[r][c]=mkCandy(t,r,c,startDy); dropIndex++;
       }
     }
-    pendingJasperCols=[];
     // ruim weggehaalde refs
     for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++){ if(grid[r][c] && grid[r][c].clearing) grid[r][c]=null; }
   }
@@ -311,9 +373,9 @@
 
   function afterFallResolve(){
     const m=findMatches();
-    if(m.cells.size>0){
-      comboMult++;
-      beginClear(m.cells, m.runs, false);
+    if(m.clear.size>0){
+      comboMult++; comboFloater();
+      doClear(m.clear, m.specials);
     } else {
       comboMult=1; phase="idle";
       checkEnd();
@@ -321,13 +383,27 @@
   }
 
   function checkEnd(){
-    if(score>=target){
-      floaters.push({x:W/2,y:H/2,text:"LEVEL "+level+" GEHAALD!",life:1.8,col:"#ffd84d",big:true});
-      shake=10;
-      setTimeout(()=>{ if(gameState==="playing") startLevel(level+1); }, 900);
-    } else if(movesLeft<=0){
-      endGame();
+    if(score>=target){ levelComplete(); }
+    else if(movesLeft<=0){ endGame(); }
+  }
+
+  function levelComplete(){
+    gameState="levelup";
+    const bonus = movesLeft*120*level;
+    score += bonus;
+    if(score>best){ best=score; try{localStorage.setItem("jasper_best",String(Math.floor(best)));}catch(e){} }
+    updateHUD();
+    flash=0.55; shake=12;
+    // confetti
+    for(let i=0;i<70;i++){
+      particles.push({ x:Math.random()*W, y:-10, vx:(Math.random()-0.5)*TILE*2, vy:(1+Math.random()*3)*TILE,
+        life:1.2+Math.random()*0.8, col:COLORS[Math.floor(Math.random()*NTYPE)], size:4+Math.random()*5, star:Math.random()<0.4 });
     }
+    el("luLevel").textContent = "Level "+level+" voltooid!";
+    el("luBonus").textContent = "+"+Math.floor(bonus)+" zetten-bonus";
+    el("luNext").textContent = "Volgend doel: "+Math.round(1500*Math.pow(1.6,level)).toLocaleString("nl-NL");
+    el("luBtn").textContent = "Level "+(level+1)+" ▶";
+    el("levelup").classList.remove("hidden");
   }
 
   function endGame(){
@@ -357,13 +433,10 @@
     grid[a.r][a.c]=cb; grid[b.r][b.c]=ca;
     ca.row=b.r; ca.col=b.c; cb.row=a.r; cb.col=a.c;
   }
-  function detonateJasper(cell){
+  function activateSpecial(cell){
     movesLeft--; updateHUD();
-    const cells=new Set();
-    for(let c=0;c<GRID;c++) cells.add(cell.r+","+c);
-    for(let r=0;r<GRID;r++) cells.add(r+","+cell.c);
     comboMult=1;
-    beginClear(cells, null, true);
+    doClear(new Set([cell.r+","+cell.c]), []);
   }
 
   let down=null;
@@ -389,7 +462,7 @@
       return;
     }
     // tap
-    if(startCand && startCand.type===JASPER){ selected=null; detonateJasper(startCell); return; }
+    if(startCand && (startCand.special || startCand.type===JASPER)){ selected=null; activateSpecial(startCell); return; }
     if(selected){
       if(selected.r===startCell.r && selected.c===startCell.c){ selected=null; }
       else if(adjacent(selected,startCell)){ trySwap(selected,startCell); }
@@ -421,6 +494,13 @@
     for(const f of floaters){ f.y-=26*dt; f.life-=dt* (f.big?0.8:1.4); }
     floaters=floaters.filter(f=>f.life>0);
 
+    // beams / shockwaves / flash
+    for(const b of beams) b.life-=dt;
+    beams=beams.filter(b=>b.life>0);
+    for(const s of shocks){ s.rr += TILE*8*dt; s.life-=dt; }
+    shocks=shocks.filter(s=>s.life>0);
+    if(flash>0){ flash-=dt*1.2; if(flash<0) flash=0; }
+
     // ambient
     for(const a of ambient){ a.y+=a.vy*dt; a.x+=a.vx*dt; a.rot+=a.vr*dt; if(a.y>1.1){a.y=-0.1;a.x=Math.random();} }
 
@@ -429,7 +509,7 @@
     if(phase==="swap"){
       if(phaseT>=D_SWAP){
         const m=findMatches();
-        if(m.cells.size>0){ movesLeft--; updateHUD(); comboMult=1; beginClear(m.cells,m.runs,false); }
+        if(m.clear.size>0 || m.specials.length>0){ movesLeft--; updateHUD(); comboMult=1; doClear(m.clear,m.specials); }
         else { // ongeldig: ruil terug
           swapLogic(swapPair[0],swapPair[1]); phase="swapback"; phaseT=0;
         }
@@ -466,6 +546,15 @@
       ctx.fillStyle="rgba(255,255,255,.8)"; ctx.beginPath(); ctx.arc(r*0.4,-r*0.45,r*0.12,0,7); ctx.fill();
       ctx.restore(); return;
     }
+    if(cand.special==="bomb"){
+      // donkere bol met kleurrijke sprinkles (kleur-bom)
+      ctx.shadowColor="#fff"; ctx.shadowBlur=14;
+      ctx.fillStyle="#241033"; ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill(); ctx.shadowBlur=0;
+      for(let i=0;i<10;i++){ const a=i/10*Math.PI*2 + time; const rr=r*0.62;
+        ctx.fillStyle=COLORS[i%NTYPE]; ctx.beginPath(); ctx.arc(Math.cos(a)*rr, Math.sin(a*1.3)*rr*0.8, r*0.13,0,7); ctx.fill(); }
+      ctx.fillStyle="rgba(255,255,255,.55)"; ctx.beginPath(); ctx.arc(-r*0.3,-r*0.35,r*0.18,0,7); ctx.fill();
+      ctx.restore(); return;
+    }
     const col=COLORS[cand.type];
     ctx.shadowColor="rgba(0,0,0,.25)"; ctx.shadowBlur=6; ctx.shadowOffsetY=3;
     ctx.fillStyle=col;
@@ -476,6 +565,9 @@
     const g=ctx.createRadialGradient(-r*0.3,-r*0.4,r*0.1,-r*0.1,-r*0.1,r*1.1);
     g.addColorStop(0,"rgba(255,255,255,.75)"); g.addColorStop(0.35,"rgba(255,255,255,.12)"); g.addColorStop(1,"rgba(255,255,255,0)");
     ctx.fillStyle=g; drawShape(cand.type, r); ctx.fill();
+    // streep-overlay
+    if(cand.special==="stripeH"){ ctx.fillStyle="rgba(255,255,255,.9)"; ctx.fillRect(-r*0.95,-r*0.30,r*1.9,r*0.16); ctx.fillRect(-r*0.95,r*0.14,r*1.9,r*0.16); }
+    else if(cand.special==="stripeV"){ ctx.fillStyle="rgba(255,255,255,.9)"; ctx.fillRect(-r*0.30,-r*0.95,r*0.16,r*1.9); ctx.fillRect(r*0.14,-r*0.95,r*0.16,r*1.9); }
     ctx.restore();
   }
 
@@ -553,9 +645,22 @@
       roundRect(x+3,y+3,TILE-6,TILE-6,9); ctx.stroke(); ctx.setLineDash([]);
     }
 
+    // beams (streep-snoep / jasper)
+    for(const b of beams){ ctx.save(); ctx.globalAlpha=Math.max(0,b.life/0.42)*0.6;
+      ctx.fillStyle=b.col; ctx.shadowColor=b.col; ctx.shadowBlur=22;
+      if(b.dir==="h"){ const y=by+b.i*TILE; ctx.fillRect(bx, y+TILE*0.16, board, TILE*0.68); }
+      else { const x=bx+b.i*TILE; ctx.fillRect(x+TILE*0.16, by, TILE*0.68, board); }
+      ctx.restore(); }
+    // shockwaves (bom)
+    for(const s of shocks){ ctx.save(); ctx.globalAlpha=Math.max(0,s.life/0.42);
+      ctx.strokeStyle="#fff"; ctx.lineWidth=5; ctx.shadowColor="#fff"; ctx.shadowBlur=16;
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.rr,0,7); ctx.stroke(); ctx.restore(); }
+    ctx.globalAlpha=1;
+
     // particles
     for(const p of particles){ ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col;
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,7); ctx.fill(); }
+      if(p.star){ ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.life*6); star(4,p.size*1.4,p.size*0.5); ctx.fill(); ctx.restore(); }
+      else { ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,7); ctx.fill(); } }
     ctx.globalAlpha=1;
 
     // floaters
@@ -566,6 +671,9 @@
     ctx.globalAlpha=1;
 
     ctx.restore();
+
+    // witte flits bij grote scores
+    if(flash>0){ ctx.save(); ctx.globalAlpha=Math.min(0.6,flash); ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H); ctx.restore(); }
 
     // JASPER RUSH overlay
     if(jasperRush>0){
@@ -593,6 +701,7 @@
   // ---------- menu ----------
   el("startBtn").addEventListener("click",()=>{ el("start").classList.add("hidden"); reset(); });
   el("retryBtn").addEventListener("click",()=>{ el("over").classList.add("hidden"); reset(); });
+  el("luBtn").addEventListener("click",()=>{ el("levelup").classList.add("hidden"); gameState="playing"; startLevel(level+1); });
 
   // placeholder bord voor menu-achtergrond
   newBoard();
