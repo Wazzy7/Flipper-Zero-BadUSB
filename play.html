@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Speelhal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { min-height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff; background: #0a0714; }
+  body { background: linear-gradient(160deg, #241043, #120a26 55%, #0a0714);
+    min-height: 100vh; padding: 28px 18px 48px; }
+  h1 { text-align: center; font-size: 34px; font-weight: 900; letter-spacing: 1px; margin-bottom: 4px;
+    background: linear-gradient(90deg,#ffd84d,#ff7ad9,#7af7c0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { text-align: center; opacity: .6; font-size: 14px; margin-bottom: 26px; }
+  .grid { display: grid; gap: 14px; max-width: 520px; margin: 0 auto; }
+  a.card { display: flex; align-items: center; gap: 14px; text-decoration: none; color: #fff;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 16px;
+    padding: 16px 18px; transition: transform .08s, background .2s; }
+  a.card:active { transform: scale(.98); }
+  .ico { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; flex: 0 0 auto; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .tx h2 { font-size: 18px; font-weight: 800; }
+  .tx p { font-size: 13px; opacity: .72; margin-top: 2px; line-height: 1.35; }
+  .go { margin-left: auto; opacity: .5; font-size: 22px; }
+  .foot { text-align: center; opacity: .4; font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+  <h1>🎮 Speelhal</h1>
+  <div class="sub">Vier zelfgemaakte browsergames — tik om te spelen</div>
+  <div class="grid">
+    <a class="card" href="./jasper-rush/">
+      <div class="ico" style="background:linear-gradient(145deg,#ff6fd0,#a05cff)">🍬</div>
+      <div class="tx"><h2>Jasper Rush</h2><p>Match-3 snoep-puzzel met power-ups, multipliers en Jasper als special.</p></div>
+      <div class="go">›</div>
+    </a>
+    <a class="card" href="./nova-core/">
+      <div class="ico" style="background:linear-gradient(145deg,#ffcf5c,#ff7a5c)">🔆</div>
+      <div class="tx"><h2>Nova Core</h2><p>Idle tower-survival: een kern die golven kristallen afweert.</p></div>
+      <div class="go">›</div>
+    </a>
+    <a class="card" href="./alien-td/">
+      <div class="ico" style="background:linear-gradient(145deg,#46d6a0,#5bc8ff)">👾</div>
+      <div class="tx"><h2>Alien Defense</h2><p>Tower defense met alien-torens, elk met een eigen power.</p></div>
+      <div class="go">›</div>
+    </a>
+    <a class="card" href="./tower-game/">
+      <div class="ico" style="background:linear-gradient(145deg,#ffd166,#ff9b3d)">🏗️</div>
+      <div class="tx"><h2>The Tower</h2><p>Klassiek stapelspel — laat de blokken precies vallen.</p></div>
+      <div class="go">›</div>
+    </a>
+  </div>
+  <div class="foot">Gemaakt met Claude Code</div>
+</body>
+</html>
