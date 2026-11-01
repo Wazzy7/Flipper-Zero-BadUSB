@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>The Tower — stapelspel</title>
+<style>
+  :root {
+    --bg-top: #1b2440;
+    --bg-bottom: #0a0e1c;
+    --accent: #ffd166;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0e1c;
+    color: #fff;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  #wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+    touch-action: none;
+  }
+  .hud {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .hud .score {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 4px 16px rgba(0,0,0,.5);
+  }
+  .hud .label {
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: .6;
+    margin-top: 6px;
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: rgba(8, 11, 24, .72);
+    backdrop-filter: blur(4px);
+    z-index: 3;
+    padding: 24px;
+    text-align: center;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+  .overlay h1 .hl { color: var(--accent); }
+  .overlay p { opacity: .75; font-size: 16px; max-width: 320px; line-height: 1.5; }
+  .overlay .big { font-size: 56px; font-weight: 800; color: var(--accent); }
+  .overlay .best { opacity: .7; font-size: 15px; }
+  .btn {
+    margin-top: 8px;
+    pointer-events: auto;
+    cursor: pointer;
+    border: none;
+    border-radius: 999px;
+    padding: 16px 44px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0a0e1c;
+    background: var(--accent);
+    box-shadow: 0 8px 24px rgba(255, 209, 102, .3);
+    transition: transform .08s ease;
+  }
+  .btn:active { transform: scale(.95); }
+  .hint { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; font-size: 13px; opacity: .45; z-index: 2; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div class="hud" id="hud" style="opacity:0">
+    <div class="score" id="score">0</div>
+    <div class="label">verdiepingen</div>
+  </div>
+
+  <div class="overlay" id="start">
+    <h1>THE <span class="hl">TOWER</span></h1>
+    <p>Stapel de blokken zo precies mogelijk op elkaar. Alles wat uitsteekt valt eraf — en de toren wordt smaller.</p>
+    <button class="btn" id="startBtn">Start</button>
+    <div class="best" id="bestStart"></div>
+  </div>
+
+  <div class="overlay hidden" id="over">
+    <h1>Toren <span class="hl">ingestort</span></h1>
+    <div class="big" id="finalScore">0</div>
+    <div class="label" style="letter-spacing:3px;opacity:.6">verdiepingen</div>
+    <div class="best" id="bestOver"></div>
+    <button class="btn" id="retryBtn">Opnieuw</button>
+  </div>
+
+  <div class="hint" id="hint" style="opacity:0">Tik / spatie om een blok te laten vallen</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const scoreEl = document.getElementById("score");
+  const hudEl = document.getElementById("hud");
+  const hintEl = document.getElementById("hint");
+  const startOverlay = document.getElementById("start");
+  const overOverlay = document.getElementById("over");
+  const finalScoreEl = document.getElementById("finalScore");
+  const bestStartEl = document.getElementById("bestStart");
+  const bestOverEl = document.getElementById("bestOver");
+
+  const BLOCK_H = 44;          // hoogte van een verdieping
+  const BASE_W = 220;          // startbreedte
+  const BASE_SPEED = 2.6;      // horizontale snelheid
+  const SPEED_GROWTH = 0.08;   // snelheidstoename per verdieping
+  const MAX_SPEED = 7.5;
+
+  let W = 0, H = 0, DPR = 1;
+  let state = "start";         // start | playing | over
+  let stack = [];              // {x, w, color}
+  let current = null;          // bewegend blok
+  let dir = 1;
+  let score = 0;
+  let best = 0;
+  let camera = 0;              // verticale offset (omhoog = toren groeit)
+  let targetCamera = 0;
+  let flakes = [];             // vallende afgesneden stukken
+  let shake = 0;
+
+  try { best = parseInt(localStorage.getItem("tower_best") || "0", 10) || 0; } catch (e) {}
+
+  function hsl(h, s, l) { return `hsl(${h}, ${s}%, ${l}%)`; }
+  function colorForLevel(i) {
+    // zachte kleurovergang naarmate de toren hoger wordt
+    const hue = (200 + i * 9) % 360;
+    return hsl(hue, 58, 58);
+  }
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function reset() {
+    stack = [];
+    flakes = [];
+    score = 0;
+    camera = 0;
+    targetCamera = 0;
+    shake = 0;
+    const startX = (W - BASE_W) / 2;
+    // fundament
+    stack.push({ x: startX, w: BASE_W, color: colorForLevel(0) });
+    spawn();
+    updateScore();
+  }
+
+  function spawn() {
+    const top = stack[stack.length - 1];
+    const speed = Math.min(BASE_SPEED + score * SPEED_GROWTH, MAX_SPEED);
+    // start afwisselend links/rechts
+    const fromLeft = stack.length % 2 === 0;
+    current = {
+      x: fromLeft ? -top.w : W,
+      w: top.w,
+      color: colorForLevel(stack.length),
+      speed: speed
+    };
+    dir = fromLeft ? 1 : -1;
+  }
+
+  // y-positie (scherm) van verdieping index i, gegeven camera
+  function levelY(i) {
+    return H - 120 - i * BLOCK_H + camera;
+  }
+
+  function drop() {
+    if (state !== "playing" || !current) return;
+    const top = stack[stack.length - 1];
+    const left = Math.max(current.x, top.x);
+    const right = Math.min(current.x + current.w, top.x + top.w);
+    const overlap = right - left;
+
+    if (overlap <= 0) {
+      // volledig mis — toren stort in
+      flakes.push(makeFlake(current.x, current.w, current.color, levelY(stack.length)));
+      gameOver();
+      return;
+    }
+
+    // afgesneden stuk(ken) laten vallen
+    const cutY = levelY(stack.length);
+    if (current.x < left) {
+      flakes.push(makeFlake(current.x, left - current.x, current.color, cutY));
+    }
+    if (current.x + current.w > right) {
+      flakes.push(makeFlake(right, (current.x + current.w) - right, current.color, cutY));
+    }
+
+    const placed = { x: left, w: overlap, color: current.color };
+    stack.push(placed);
+    score++;
+    updateScore();
+
+    // perfecte landing? kleine beloning (geen krimp)
+    const perfect = Math.abs(current.x - top.x) < 4;
+    if (perfect) {
+      placed.x = top.x;
+      placed.w = top.w;
+      shake = 2;
+    } else {
+      shake = Math.min(6, overlap < top.w ? (top.w - overlap) * 0.06 + 2 : 2);
+    }
+
+    targetCamera = Math.max(0, (stack.length - 3) * BLOCK_H);
+    spawn();
+  }
+
+  function makeFlake(x, w, color, y) {
+    return {
+      x, w, y, color,
+      vy: 0,
+      vx: (Math.random() - 0.5) * 1.5,
+      rot: 0,
+      vrot: (Math.random() - 0.5) * 0.2,
+      life: 1
+    };
+  }
+
+  function updateScore() {
+    scoreEl.textContent = score;
+  }
+
+  function gameOver() {
+    state = "over";
+    current = null;
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem("tower_best", String(best)); } catch (e) {}
+    }
+    finalScoreEl.textContent = score;
+    bestOverEl.textContent = "Record: " + best;
+    hudEl.style.opacity = "0";
+    hintEl.style.opacity = "0";
+    shake = 14;
+    setTimeout(() => overOverlay.classList.remove("hidden"), 450);
+  }
+
+  function startGame() {
+    startOverlay.classList.add("hidden");
+    overOverlay.classList.add("hidden");
+    hudEl.style.opacity = "1";
+    hintEl.style.opacity = "1";
+    state = "playing";
+    reset();
+  }
+
+  function update() {
+    // camera soepel naar doel
+    camera += (targetCamera - camera) * 0.12;
+    if (shake > 0.1) shake *= 0.86; else shake = 0;
+
+    if (state === "playing" && current) {
+      current.x += dir * current.speed;
+      const top = stack[stack.length - 1];
+      // kaats binnen marge zodat het blok altijd bereikbaar blijft
+      const leftLimit = -current.w + 10;
+      const rightLimit = W - 10;
+      if (current.x <= leftLimit) { current.x = leftLimit; dir = 1; }
+      if (current.x >= rightLimit) { current.x = rightLimit; dir = -1; }
+    }
+
+    // vallende stukken
+    for (const f of flakes) {
+      f.vy += 0.9;
+      f.y += f.vy;
+      f.x += f.vx;
+      f.rot += f.vrot;
+      f.life -= 0.012;
+    }
+    flakes = flakes.filter(f => f.y < H + 200 && f.life > 0);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, h / 2, w / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBlock(x, y, w, color, highlight) {
+    roundRect(x, y, w, BLOCK_H - 4, 6);
+    ctx.fillStyle = color;
+    ctx.fill();
+    // bovenrand lichter voor diepte
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    roundRect(x, y, w, (BLOCK_H - 4) * 0.4, 6);
+    ctx.fill();
+    if (highlight) {
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 2;
+      roundRect(x, y, w, BLOCK_H - 4, 6);
+      ctx.stroke();
+    }
+  }
+
+  function render() {
+    const sx = (Math.random() - 0.5) * shake;
+    const sy = (Math.random() - 0.5) * shake;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.clearRect(-20, -20, W + 40, H + 40);
+
+    // verre sterren / stip-achtergrond subtiel
+    // gestapelde blokken
+    for (let i = 0; i < stack.length; i++) {
+      const b = stack[i];
+      const y = levelY(i);
+      if (y > H + BLOCK_H || y < -BLOCK_H * 2) continue;
+      drawBlock(b.x, y, b.w, b.color, false);
+    }
+
+    // bewegend blok
+    if (state === "playing" && current) {
+      drawBlock(current.x, levelY(stack.length), current.w, current.color, true);
+    }
+
+    // vallende stukken
+    for (const f of flakes) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.translate(f.x + f.w / 2, f.y + BLOCK_H / 2);
+      ctx.rotate(f.rot);
+      roundRect(-f.w / 2, -(BLOCK_H - 4) / 2, f.w, BLOCK_H - 4, 6);
+      ctx.fillStyle = f.color;
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // input
+  function onPress(e) {
+    if (e && e.cancelable) e.preventDefault();
+    if (state === "playing") drop();
+  }
+  canvas.addEventListener("pointerdown", onPress);
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space" || e.code === "ArrowDown" || e.code === "Enter") {
+      if (state === "start") startGame();
+      else if (state === "playing") { e.preventDefault(); drop(); }
+      else if (state === "over") startGame();
+    }
+  });
+
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("retryBtn").addEventListener("click", startGame);
+
+  bestStartEl.textContent = best ? "Record: " + best : "";
+  loop();
+})();
+</script>
+</body>
+</html>
