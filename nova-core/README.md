@@ -1,52 +1,43 @@
-# Bloom
+# Bloom Defense
 
-Een hypnotiserend **idle "bloom survival"** spel: je bloem-kern schiet volledig
-automatisch op naderende kristallen terwijl jij achteroverleunt, combo's laat
-rollen en af en toe tikt voor een dopamine-kick. Minimale interactie, maximaal
-gevoel.
+Een originele **idle tower-defense** in de stijl van het genre (centrale kern die
+automatisch golven afweert terwijl je stats upgradet), met een eigen
+hypnotische bloem-look. Geen kopie van een bestaand spel — eigen visuals,
+naamgeving en balans.
 
 ## Spelen
 
 Open `index.html` in een browser. Geen build of installatie nodig. Werkt op
-mobiel en desktop.
+mobiel, tablet en desktop.
 
 ```bash
-cd nova-core
-python3 -m http.server 8000
-# open http://localhost:8000
+cd nova-core && python3 -m http.server 8000   # → http://localhost:8000
 ```
 
-## Hoe werkt het
+## Opzet
 
-- De kern **richt en schiet vanzelf** — je hoeft niets te doen om te overleven.
-- Vijanden spiralen naar binnen en worden **bóvenop de kern** getekend, zodat je
-  ze altijd ziet (ook vlak voor de kern).
-- Elke kill geeft **✦ essence**, XP en bouwt je **combo-multiplier** op (die
-  langzaam wegzakt — blijf dus kills maken).
-- **Upgrades** met één tik onderin: 🗡 POWER, ⚡ SPEED, 🍀 FORTUNE. Zet **AUTO**
-  aan en het spel koopt vanzelf de goedkoopste upgrade — puur idle.
-- Je schoten worden **zichtbaar groter, sneller en feller** naarmate je upgradet.
+- **Golven** met zichtbare vijand-stats (❤ HP en ⚔ schade) en een
+  voortgangsbalk; elke **10e golf** is een **boss** die 💎 gems dropt.
+- Een prominente **kern-HP-balk** en een HP-ring rond de bloem.
+- **Snelheidsregelaar** (− / ×N / +) van ×1 t/m ×4.
+- **AUTO-KOOP** die automatisch de goedkoopste upgrade koopt — puur idle.
+- **BLOOM-ultimate**: als de roze balk vol is, tik overal voor een
+  scherm-vullende explosie.
+- Combo-multiplier, crits, gem-drops en juice voor dat "cijfers omhoog"-gevoel.
 
-## De hooks (bewust bevredigend)
+## Upgrades (4 tabbladen)
 
-- **Combo-multiplier** die oploopt en je beloningen vermenigvuldigt.
-- **Overal vullende balken**: XP, surge en een stage-timer die altijd richting
-  de volgende beloning kruipt.
-- **BLOOM**: als de roze balk vol is, pulseert het scherm — **tik overal** voor
-  een scherm-vullende explosie die alles wegvaagt in een confetti van essence.
-- **Variabele beloningen**: willekeurige kritieke treffers en zeldzame **gouden
-  vijanden** die een dikke essence-orb droppen (tik 'm voor de volle buit).
-- **Mijlpalen**: elke nieuwe stage en elk level geeft een flits, een banner en
-  een bonus.
-- **Levels** maken je passief sterker, dus de cijfers blijven omhoog vliegen.
+- ⚔ **Aanval** — schade, vuursnelheid, kritiek kans, kritiek factor, bereik,
+  multishot
+- 🛡 **Defensie** — max leven, regen, pantser, doornen
+- ★ **Utility** — cash-bonus, cash/golf, rente, gem-kans
+- 🌸 **Ultimate** (met 💎 gems) — spruit-drones, kettingschok, brandzaad,
+  vorstveld
 
-## Visueel
+Cash koop je met (uit kills + golf-bonus + rente); gems verdien je van bosses en
+een upgradebare gem-kans, en geef je uit aan de krachtige Ultimate-gadgets.
 
-Een roterende bloem-kern die "ademt", kleur-driftende mandala-stralen, zachte
-gloed (additive blending), deeltjes-explosies, shockwave-ringen en screen-shake
-— ontworpen om rustgevend én verslavend te kijken.
-
-Je hoogst bereikte stage wordt lokaal bewaard. Hoe ver bloei jij?
+Je hoogst bereikte golf wordt lokaal bewaard. Hoe ver kom jij?
 
 ## Techniek
 
