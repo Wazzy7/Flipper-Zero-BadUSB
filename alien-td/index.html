@@ -177,9 +177,31 @@
 
   let W = 0, H = 0, DPR = 1, TILE = 40, offX = 0, offY = 0;
 
+  // Betrouwbare CSS-pixel-afmetingen: neem het kleinste van alle bronnen,
+  // zodat een opgeblazen window.innerWidth (fysieke px in sommige iframes/
+  // previews) het bord niet te groot maakt.
+  function viewport() {
+    const de = document.documentElement;
+    const vv = window.visualViewport;
+    let w = Math.min(
+      window.innerWidth || Infinity,
+      (de && de.clientWidth) || Infinity,
+      (vv && vv.width) || Infinity
+    );
+    let h = Math.min(
+      window.innerHeight || Infinity,
+      (de && de.clientHeight) || Infinity,
+      (vv && vv.height) || Infinity
+    );
+    if (!isFinite(w) || w <= 0) w = 390;
+    if (!isFinite(h) || h <= 0) h = 700;
+    return { w, h };
+  }
+
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
+    const vp = viewport();
+    W = vp.w; H = vp.h;
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
     canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -190,6 +212,11 @@
     offY = HUD_TOP + (availH - boardH) / 2;
   }
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", resize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", resize);
+    window.visualViewport.addEventListener("scroll", resize);
+  }
   resize();
 
   // tile-eenheden -> pixels
