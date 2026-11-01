@@ -109,7 +109,8 @@
     if(!isFinite(w)||w<=0)w=390; if(!isFinite(h)||h<=0)h=700; return {w,h}; }
   function resize(){ DPR=Math.min(window.devicePixelRatio||1,2); const p=vp(); W=p.w; H=p.h;
     canvas.style.width=W+"px"; canvas.style.height=H+"px"; canvas.width=W*DPR|0; canvas.height=H*DPR|0; ctx.setTransform(DPR,0,0,DPR,0,0);
-    const top=120, bottom=H-DOCK; cx0=W/2; cy0=(top+bottom)/2; R=Math.min(W*0.5,(bottom-top)/2)*0.96; coreR=Math.max(22,R*0.12); }
+    const top=120, bottom=H-DOCK; cx0=W/2; cy0=(top+bottom)/2;
+    R=Math.min(W*0.40,(bottom-top)/2*0.80); coreR=Math.max(20,R*0.13); }
   window.addEventListener("resize",resize); window.addEventListener("orientationchange",resize);
   if(window.visualViewport){ visualViewport.addEventListener("resize",resize); visualViewport.addEventListener("scroll",resize); }
   resize();
@@ -152,9 +153,9 @@
     const ang=Math.random()*Math.PI*2;
     const golden=Math.random()<0.04, big=Math.random()<0.08 && !golden;
     const hpv=(golden?20:big?45:9)*Math.pow(1.12,stage);
-    enemies.push({ ang, f:1.12+Math.random()*0.06, spin:(Math.random()-0.5)*0.5,
-      hp:hpv, maxHp:hpv, speed:(0.05+Math.random()*0.015)*(1+stage*0.01)*(big?0.7:1),
-      r:(golden?R*0.03:big?R*0.052:R*0.032),
+    enemies.push({ ang, f:1.04+Math.random()*0.05, spin:(Math.random()-0.5)*0.5,
+      hp:hpv, maxHp:hpv, speed:(0.042+Math.random()*0.013)*(1+stage*0.01)*(big?0.7:1),
+      r:(golden?R*0.045:big?R*0.07:R*0.045),
       reward:Math.max(1,Math.round((golden?30:big?9:3)*Math.pow(1.1,stage))),
       xp:Math.max(1,Math.round((golden?10:big?4:2)*Math.pow(1.07,stage))),
       golden, big, kind:Math.floor(Math.random()*3), rot:Math.random()*7, vr:(Math.random()-0.5)*2,
@@ -279,8 +280,8 @@
       if(surge>=surgeMax&&!surgeReady){surgeReady=true;} }
 
     // spawnen (continu, hypnotische stroom)
-    spawnT-=dt0; const interval=Math.max(0.28, 1.0-stage*0.03);
-    if(spawnT<=0){ spawnEnemy(); if(stage>4 && Math.random()<0.3) spawnEnemy(); spawnT=interval; }
+    spawnT-=dt0; const interval=Math.max(0.3, 0.85-stage*0.025);
+    if(spawnT<=0){ spawnEnemy(); if(stage>2 && Math.random()<0.45) spawnEnemy(); spawnT=interval; }
 
     // vijanden: spiraal naar binnen
     const contact=(coreR)/R + 0.02;
