@@ -122,7 +122,7 @@
     <button class="btn" id="retryBtn">Opnieuw</button>
   </div>
 
-  <div class="hint" id="hint" style="opacity:0">Tik / spatie om een blok te laten vallen</div>
+  <div class="hint" id="hint" style="opacity:0">Tik / spatie zodra het blok boven de toren staat — groen = blijft staan</div>
 </div>
 
 <script>
@@ -140,11 +140,12 @@
   const bestStartEl = document.getElementById("bestStart");
   const bestOverEl = document.getElementById("bestOver");
 
-  const BLOCK_H = 44;          // hoogte van een verdieping
-  const BASE_W = 220;          // startbreedte
-  const BASE_SPEED = 2.6;      // horizontale snelheid
-  const SPEED_GROWTH = 0.08;   // snelheidstoename per verdieping
-  const MAX_SPEED = 7.5;
+  const BLOCK_H = 46;          // hoogte van een verdieping
+  const BASE_W = 200;          // startbreedte
+  const BASE_SPEED = 2.2;      // horizontale snelheid
+  const SPEED_GROWTH = 0.07;   // snelheidstoename per verdieping
+  const MAX_SPEED = 7.0;
+  const ANCHOR = 0.5;          // schermhoogte-fractie waar de top van de toren blijft
 
   let W = 0, H = 0, DPR = 1;
   let state = "start";         // start | playing | over
@@ -153,8 +154,7 @@
   let dir = 1;
   let score = 0;
   let best = 0;
-  let camera = 0;              // verticale offset (omhoog = toren groeit)
-  let targetCamera = 0;
+  let shiftAnim = 0;           // vloeiende verschuiving bij het plaatsen van een blok
   let flakes = [];             // vallende afgesneden stukken
   let shake = 0;
 
@@ -162,9 +162,9 @@
 
   function hsl(h, s, l) { return `hsl(${h}, ${s}%, ${l}%)`; }
   function colorForLevel(i) {
-    // zachte kleurovergang naarmate de toren hoger wordt
-    const hue = (200 + i * 9) % 360;
-    return hsl(hue, 58, 58);
+    // warme, contrastrijke kleuren die opvallen tegen de donkerblauwe lucht
+    const hue = (28 + i * 24) % 360;
+    return hsl(hue, 68, 60);
   }
 
   function resize() {
@@ -184,8 +184,7 @@
     stack = [];
     flakes = [];
     score = 0;
-    camera = 0;
-    targetCamera = 0;
+    shiftAnim = 0;
     shake = 0;
     const startX = (W - BASE_W) / 2;
     // fundament
@@ -197,10 +196,10 @@
   function spawn() {
     const top = stack[stack.length - 1];
     const speed = Math.min(BASE_SPEED + score * SPEED_GROWTH, MAX_SPEED);
-    // start afwisselend links/rechts
+    // start afwisselend links/rechts, volledig in beeld
     const fromLeft = stack.length % 2 === 0;
     current = {
-      x: fromLeft ? -top.w : W,
+      x: fromLeft ? 0 : (W - top.w),
       w: top.w,
       color: colorForLevel(stack.length),
       speed: speed
@@ -208,9 +207,12 @@
     dir = fromLeft ? 1 : -1;
   }
 
-  // y-positie (scherm) van verdieping index i, gegeven camera
+  // y-positie (scherm) van verdieping index i.
+  // De top van de toren blijft rond ANCHOR van de schermhoogte; lagere
+  // verdiepingen zakken naar beneden uit beeld naarmate de toren groeit.
   function levelY(i) {
-    return H - 120 - i * BLOCK_H + camera;
+    const topIndex = stack.length - 1;
+    return H * ANCHOR + (topIndex - i) * BLOCK_H + shiftAnim;
   }
 
   function drop() {
@@ -251,7 +253,8 @@
       shake = Math.min(6, overlap < top.w ? (top.w - overlap) * 0.06 + 2 : 2);
     }
 
-    targetCamera = Math.max(0, (stack.length - 3) * BLOCK_H);
+    // laat de toren soepel een verdieping omlaag schuiven
+    shiftAnim = -BLOCK_H;
     spawn();
   }
 
@@ -295,18 +298,16 @@
   }
 
   function update() {
-    // camera soepel naar doel
-    camera += (targetCamera - camera) * 0.12;
+    // plaatsings-verschuiving soepel naar 0
+    shiftAnim += (0 - shiftAnim) * 0.18;
+    if (Math.abs(shiftAnim) < 0.3) shiftAnim = 0;
     if (shake > 0.1) shake *= 0.86; else shake = 0;
 
     if (state === "playing" && current) {
       current.x += dir * current.speed;
-      const top = stack[stack.length - 1];
-      // kaats binnen marge zodat het blok altijd bereikbaar blijft
-      const leftLimit = -current.w + 10;
-      const rightLimit = W - 10;
-      if (current.x <= leftLimit) { current.x = leftLimit; dir = 1; }
-      if (current.x >= rightLimit) { current.x = rightLimit; dir = -1; }
+      // kaats tegen de schermranden; blok blijft altijd volledig zichtbaar
+      if (current.x <= 0) { current.x = 0; dir = 1; }
+      if (current.x >= W - current.w) { current.x = W - current.w; dir = -1; }
     }
 
     // vallende stukken
@@ -363,9 +364,40 @@
       drawBlock(b.x, y, b.w, b.color, false);
     }
 
-    // bewegend blok
+    // bewegend blok + hulpmiddelen om te richten
     if (state === "playing" && current) {
-      drawBlock(current.x, levelY(stack.length), current.w, current.color, true);
+      const top = stack[stack.length - 1];
+      const topY = levelY(stack.length - 1);
+      const moveY = levelY(stack.length);
+
+      // stippellijnen bij de randen van de toren-top: tik als het blok ertussen past
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(top.x + 0.5, topY + BLOCK_H);
+      ctx.lineTo(top.x + 0.5, moveY - 6);
+      ctx.moveTo(top.x + top.w - 0.5, topY + BLOCK_H);
+      ctx.lineTo(top.x + top.w - 0.5, moveY - 6);
+      ctx.stroke();
+      ctx.restore();
+
+      drawBlock(current.x, moveY, current.w, current.color, true);
+
+      // groene zone = deel dat blijft staan als je nú tikt
+      const left = Math.max(current.x, top.x);
+      const right = Math.min(current.x + current.w, top.x + top.w);
+      if (right > left) {
+        ctx.save();
+        roundRect(left, moveY, right - left, BLOCK_H - 4, 6);
+        ctx.fillStyle = "rgba(120, 255, 170, 0.35)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(150, 255, 190, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // vallende stukken
