@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Nova Core</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; user-select: none; -webkit-user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fff;
+    background: #0a0714; touch-action: manipulation; }
+  #wrap { position: relative; width: 100%; height: 100%; }
+  canvas { position: absolute; inset: 0; touch-action: none; }
+
+  #top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: space-between;
+    align-items: flex-start; padding: 10px 14px; pointer-events: none; font-weight: 800; font-size: 15px;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #top .cur div { margin-bottom: 2px; }
+  #top .amber { color: #ffcf5c; } #top .cyan { color: #7af7ff; }
+  #wave { text-align: right; }
+  #wave .big { font-size: 20px; font-weight: 900; }
+  #wave small { opacity: .7; font-size: 11px; }
+
+  #speedBtn { position: absolute; z-index: 6; right: 14px; pointer-events: auto; cursor: pointer;
+    background: rgba(255,207,92,.15); border: 2px solid #ffcf5c; color: #ffcf5c; border-radius: 10px;
+    padding: 6px 12px; font-weight: 900; font-size: 15px; }
+  #speedBtn:active { transform: scale(.94); }
+
+  #panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; background: #120b22;
+    border-top: 2px solid #2a1c4a; display: flex; flex-direction: column; }
+  #tabs { display: flex; }
+  .tab { flex: 1; text-align: center; padding: 10px 4px; font-weight: 800; font-size: 13px; cursor: pointer;
+    color: #9a8fc0; border-bottom: 3px solid transparent; background: #160d2a; }
+  .tab.on { color: #fff; }
+  .tab.attack.on { border-color: #ff7a5c; color: #ffb199; }
+  .tab.def.on { border-color: #5cb8ff; color: #a9dbff; }
+  .tab.eco.on { border-color: #ffcf5c; color: #ffe6a3; }
+  #ups { padding: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow-y: auto; }
+  .up { background: #1c1136; border: 1px solid #332152; border-radius: 10px; padding: 8px 10px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px; transition: transform .06s; }
+  .up:active { transform: scale(.97); }
+  .up.cant { opacity: .5; }
+  .up .nm { font-size: 12px; font-weight: 700; color: #cbbdf0; line-height: 1.15; }
+  .up .val { font-size: 17px; font-weight: 900; }
+  .up .cost { font-size: 12px; font-weight: 800; color: #ffcf5c; align-self: flex-end; }
+  .up .cost.lv { color: #9a8fc0; }
+
+  .overlay { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 14px; text-align: center; padding: 28px; background: rgba(10,7,20,.85); backdrop-filter: blur(5px); }
+  .overlay.hidden { display: none; }
+  .overlay h1 { font-size: 40px; font-weight: 900; letter-spacing: 2px; }
+  .overlay h1 .hl { color: #ffcf5c; }
+  .overlay p { opacity: .85; font-size: 15px; max-width: 330px; line-height: 1.55; }
+  .overlay .big { font-size: 46px; font-weight: 900; color: #ffcf5c; }
+  .overlay .list { text-align: left; font-size: 13px; opacity: .9; line-height: 1.7; background: rgba(255,255,255,.05); padding: 12px 16px; border-radius: 12px; max-width: 320px; }
+  .btn { margin-top: 6px; border: none; border-radius: 999px; padding: 15px 46px; font-size: 19px; font-weight: 900;
+    color: #2a1400; background: linear-gradient(180deg,#ffdd80,#ffb52e); cursor: pointer; box-shadow: 0 8px 22px rgba(255,180,46,.35); }
+  .btn:active { transform: scale(.95); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="top">
+    <div class="cur">
+      <div class="amber">💰 <span id="cash">0</span></div>
+      <div class="cyan">◈ <span id="wavekills">0</span></div>
+    </div>
+    <div id="wave"><div class="big">GOLF <span id="waveNum">1</span></div><small id="waveInfo"></small></div>
+  </div>
+  <button id="speedBtn">▶ ×1</button>
+
+  <div id="panel">
+    <div id="tabs">
+      <div class="tab attack on" data-tab="attack">⚔ Aanval</div>
+      <div class="tab def" data-tab="def">🛡 Verdediging</div>
+      <div class="tab eco" data-tab="eco">★ Economie</div>
+    </div>
+    <div id="ups"></div>
+  </div>
+
+  <div class="overlay" id="start">
+    <h1>NOVA <span class="hl">CORE</span></h1>
+    <p>Jouw kern schiet automatisch op naderende kristallen. Overleef zo veel mogelijk golven en versterk je kern met upgrades.</p>
+    <div class="list">
+      ⚔ <b>Aanval</b> — schade, vuursnelheid, bereik, meervoudig schot, kritiek<br>
+      🛡 <b>Verdediging</b> — leven, regeneratie, pantser, schokgolf<br>
+      ★ <b>Economie</b> — cash-bonus, cash per golf, rente<br>
+      ⏩ Versnel het spel met de snelheidsknop
+    </div>
+    <button class="btn" id="startBtn">Start</button>
+  </div>
+
+  <div class="overlay hidden" id="over">
+    <h1>Kern <span class="hl">vernietigd</span></h1>
+    <div class="big" id="overWave">Golf 0</div>
+    <p id="overMsg"></p>
+    <button class="btn" id="retryBtn">Opnieuw</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  const el = (id) => document.getElementById(id);
+
+  // ---------- layout ----------
+  let W=0,H=0,DPR=1, panelH=360, arenaCX=0, arenaCY=0, arenaR=200;
+  const TOP=64;
+  function viewport(){ const de=document.documentElement, vv=window.visualViewport;
+    let w=Math.min(window.innerWidth||Infinity,(de&&de.clientWidth)||Infinity,(vv&&vv.width)||Infinity);
+    let h=Math.min(window.innerHeight||Infinity,(de&&de.clientHeight)||Infinity,(vv&&vv.height)||Infinity);
+    if(!isFinite(w)||w<=0)w=390; if(!isFinite(h)||h<=0)h=700; return {w,h}; }
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    const vp=viewport(); W=vp.w; H=vp.h;
+    canvas.style.width=W+"px"; canvas.style.height=H+"px";
+    canvas.width=Math.floor(W*DPR); canvas.height=Math.floor(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    panelH = Math.min(Math.max(H*0.42,300), 430);
+    el("panel").style.height = panelH+"px";
+    el("ups").style.maxHeight = (panelH-46)+"px";
+    const top=TOP, bottom=H-panelH;
+    arenaCX = W/2; arenaCY = (top+bottom)/2;
+    arenaR = Math.min(W*0.46, (bottom-top)/2*0.94);
+    el("speedBtn").style.top = (bottom - 44) + "px";
+  }
+  window.addEventListener("resize",resize);
+  window.addEventListener("orientationchange",resize);
+  if(window.visualViewport){ visualViewport.addEventListener("resize",resize); visualViewport.addEventListener("scroll",resize); }
+  resize();
+
+  // ---------- upgrade definities (eigen ontwerp) ----------
+  const UP = {
+    attack: [
+      { key:"dmg", name:"Schade", cost:20, mul:1.18, val:l=>5*Math.pow(1.26,l), fmt:v=>Math.round(v) },
+      { key:"rate", name:"Vuursnelheid", cost:28, mul:1.2, val:l=>1.2*Math.pow(1.09,l), fmt:v=>v.toFixed(2)+"/s" },
+      { key:"range", name:"Bereik", cost:30, mul:1.26, val:l=>Math.min(1.0,0.46+l*0.045), fmt:v=>Math.round(v*100)+"%" },
+      { key:"multi", name:"Meervoudig schot", cost:120, mul:1.7, val:l=>1+l, fmt:v=>"×"+v },
+      { key:"crit", name:"Kritiek kans", cost:40, mul:1.24, val:l=>Math.min(0.6,0.05+l*0.03), fmt:v=>Math.round(v*100)+"%" },
+    ],
+    def: [
+      { key:"hp", name:"Max leven", cost:26, mul:1.22, val:l=>100*Math.pow(1.28,l), fmt:v=>Math.round(v) },
+      { key:"regen", name:"Regeneratie", cost:34, mul:1.22, val:l=>l*2.5, fmt:v=>v.toFixed(1)+"/s" },
+      { key:"armor", name:"Pantser", cost:38, mul:1.26, val:l=>Math.min(0.75,l*0.045), fmt:v=>Math.round(v*100)+"%" },
+      { key:"nova", name:"Schokgolf", cost:70, mul:1.5, val:l=>l*12, fmt:v=>v?Math.round(v):"uit" },
+    ],
+    eco: [
+      { key:"bonus", name:"Cash-bonus", cost:32, mul:1.22, val:l=>Math.pow(1.12,l), fmt:v=>"×"+v.toFixed(2) },
+      { key:"perwave", name:"Cash / golf", cost:26, mul:1.16, val:l=>10+l*9, fmt:v=>Math.round(v) },
+      { key:"interest", name:"Rente / golf", cost:46, mul:1.28, val:l=>Math.min(0.3,l*0.01), fmt:v=>(v*100).toFixed(0)+"%" },
+    ],
+  };
+  const ALL = [...UP.attack, ...UP.def, ...UP.eco];
+
+  // ---------- state ----------
+  let cash=0, totalKills=0, wave=1, gameState="menu";
+  let lv={}, T={};                  // upgrade-levels & afgeleide tower-stats
+  let core={hp:100,max:100};
+  let enemies=[], projectiles=[], floaters=[], embers=[];
+  let spawnQueue=[], spawnTimer=0, waveActive=false, waveGap=0;
+  let fireCd=0, novaCd=0, shake=0, pulse=0, best=0;
+  let speed=1; const SPEEDS=[1,2,4];
+  let time=0,lastT=0, curTab="attack";
+
+  try{ best=parseInt(localStorage.getItem("nova_best")||"0",10)||0; }catch(e){}
+
+  function recompute(){
+    const g=(k)=>{ const d=ALL.find(u=>u.key===k); return d.val(lv[k]||0); };
+    T.dmg=g("dmg"); T.rate=g("rate"); T.range=g("range"); T.multi=g("multi"); T.crit=g("crit");
+    const newMax=g("hp");
+    if(T.max){ const delta=newMax-T.max; core.hp=Math.min(newMax, core.hp+Math.max(0,delta)); }
+    T.max=newMax; core.max=newMax;
+    T.regen=g("regen"); T.armor=g("armor"); T.nova=g("nova");
+    T.bonus=g("bonus"); T.perwave=g("perwave"); T.interest=g("interest");
+  }
+
+  function reset(){
+    cash=120; totalKills=0; wave=1; gameState="playing";
+    lv={}; ALL.forEach(u=>lv[u.key]=0);
+    T={}; recompute(); core.hp=core.max;
+    enemies=[]; projectiles=[]; floaters=[];
+    spawnQueue=[]; waveActive=false; waveGap=0.6; spawnTimer=0;
+    fireCd=0; novaCd=0; shake=0; speed=1;
+    el("speedBtn").textContent="▶ ×1";
+    buildPanel(); updateHUD();
+  }
+
+  function initEmbers(){ embers=[]; for(let i=0;i<40;i++) embers.push({x:Math.random(),y:Math.random(),s:1+Math.random()*2.5,v:0.01+Math.random()*0.03,tw:Math.random()*7}); }
+  initEmbers();
+
+  // ---------- golven ----------
+  function buildWave(w){
+    const q=[];
+    const boss = (w%10===0);
+    const count = boss ? 1 + Math.floor(w/10) : 5 + Math.floor(w*1.6);
+    for(let i=0;i<count;i++){
+      q.push({ boss: boss && i===0, delay: i*(boss?0.9:Math.max(0.16,0.6-w*0.012)) });
+    }
+    return q;
+  }
+  function startWave(){
+    spawnQueue = buildWave(wave);
+    spawnTimer = 0; waveActive = true;
+    updateHUD();
+  }
+  function spawnEnemy(boss){
+    const ang=Math.random()*Math.PI*2;
+    const hpBase = (boss? 220 : 10) * Math.pow(1.17, wave) * (boss?1:1);
+    const kinds=["tri","diamond","square"];
+    enemies.push({
+      ang, f:1.08, boss,
+      hp: hpBase, maxHp: hpBase,
+      speed: (boss?0.045:0.07+Math.random()*0.03) * (1+wave*0.006),
+      dmg: (boss?40:8) * Math.pow(1.06,wave),
+      reward: Math.max(1,Math.round((boss?60:2.2) * Math.pow(1.11,wave))),
+      kind: boss?"boss":kinds[Math.floor(Math.random()*kinds.length)],
+      color: boss?"#ff5ca8":(["#7af7ff","#b78bff","#5cff9e"][Math.floor(Math.random()*3)]),
+      rot: Math.random()*7, vr:(Math.random()-0.5)*1.5
+    });
+  }
+
+  // ---------- combat ----------
+  function ePos(e){ return { x: arenaCX + Math.cos(e.ang)*arenaR*e.f, y: arenaCY + Math.sin(e.ang)*arenaR*e.f }; }
+  function fire(){
+    // doelen binnen bereik, dichtstbij eerst
+    const rr = T.range*arenaR;
+    const inRange = enemies.filter(e=> e.f*arenaR <= rr).sort((a,b)=>a.f-b.f).slice(0, T.multi);
+    for(const tgt of inRange){
+      const crit = Math.random()<T.crit;
+      projectiles.push({ x:arenaCX, y:arenaCY, target:tgt, speed:arenaR*3.2, dmg:T.dmg*(crit?2:1), crit });
+    }
+    if(inRange.length) pulse=1;
+  }
+  function damageEnemy(e, dmg, crit){
+    e.hp -= dmg;
+    floaters.push({x:ePos(e).x, y:ePos(e).y-10, text: (crit?"":"")+Math.round(dmg), life:0.6, col:crit?"#ffcf5c":"#ffffff", sz:crit?16:12});
+    if(e.hp<=0) killEnemy(e);
+  }
+  function killEnemy(e){
+    const p=ePos(e);
+    const reward = Math.round(e.reward * T.bonus);
+    cash += reward; totalKills++;
+    floaters.push({x:p.x,y:p.y,text:"+$"+reward,life:0.9,col:"#ffcf5c",sz:13});
+    for(let i=0;i<(e.boss?26:8);i++){ const a=Math.random()*7, sp=(1+Math.random()*3)*arenaR*0.12;
+      projectiles.push({frag:true, x:p.x,y:p.y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.5, col:e.color}); }
+    if(e.boss) shake=Math.max(shake,12);
+    e.dead=true;
+  }
+
+  function doNova(){
+    // schokgolf: schade aan alles binnen bereik
+    if(T.nova<=0) return;
+    novaCd = 4;
+    const rr=T.range*arenaR;
+    shake=Math.max(shake,6); pulse=1.2;
+    enemies.forEach(e=>{ if(e.f*arenaR<=rr) damageEnemy(e, T.nova, false); });
+    floaters.push({x:arenaCX,y:arenaCY-arenaR*0.4,text:"SCHOKGOLF",life:0.8,col:"#5cb8ff",sz:15});
+  }
+
+  // ---------- UI ----------
+  function fmtN(n){ n=Math.floor(n); if(n>=1e9)return (n/1e9).toFixed(2)+"B"; if(n>=1e6)return (n/1e6).toFixed(2)+"M"; if(n>=1e3)return (n/1e3).toFixed(2)+"k"; return ""+n; }
+  function updateHUD(){
+    el("cash").textContent=fmtN(cash);
+    el("wavekills").textContent=fmtN(totalKills);
+    el("waveNum").textContent=wave;
+    el("waveInfo").textContent = (core.max?("❤ "+Math.ceil(core.hp)+" / "+Math.round(core.max)):"");
+    document.querySelectorAll(".up").forEach(b=>{
+      const d=ALL.find(u=>u.key===b.dataset.key);
+      const cost=upCost(d);
+      b.classList.toggle("cant", cash<cost);
+    });
+  }
+  function upCost(d){ return Math.round(d.cost * Math.pow(d.mul, lv[d.key]||0)); }
+  function buildPanel(){
+    const ups=el("ups"); ups.innerHTML="";
+    UP[curTab].forEach(d=>{
+      const b=document.createElement("div"); b.className="up"; b.dataset.key=d.key;
+      b.innerHTML=`<div class="nm">${d.name}</div><div class="val">${d.fmt(d.val(lv[d.key]||0))}</div><div class="cost">💰${fmtN(upCost(d))}</div>`;
+      b.addEventListener("click",()=>buy(d));
+      ups.appendChild(b);
+    });
+    updateHUD();
+  }
+  function buy(d){
+    if(gameState!=="playing") return;
+    const cost=upCost(d);
+    if(cash<cost) return;
+    cash-=cost; lv[d.key]=(lv[d.key]||0)+1; recompute();
+    // update alleen de knop + hud
+    const b=[...document.querySelectorAll(".up")].find(x=>x.dataset.key===d.key);
+    if(b){ b.querySelector(".val").textContent=d.fmt(d.val(lv[d.key])); b.querySelector(".cost").innerHTML="💰"+fmtN(upCost(d)); }
+    updateHUD();
+  }
+  document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on"); curTab=t.dataset.tab; buildPanel();
+  }));
+  el("speedBtn").addEventListener("click",()=>{
+    const i=(SPEEDS.indexOf(speed)+1)%SPEEDS.length; speed=SPEEDS[i];
+    el("speedBtn").textContent=(speed===1?"▶":"⏩")+" ×"+speed;
+  });
+
+  // ---------- update ----------
+  function update(dt0){
+    time+=dt0;
+    for(const e of embers){ e.y-=e.v*dt0*0.1; if(e.y<-0.05){e.y=1.05;e.x=Math.random();} e.tw+=dt0*3; }
+    if(shake>0.1) shake*=Math.pow(0.0009,dt0); else shake=0;
+    if(pulse>0) pulse-=dt0*3; if(pulse<0)pulse=0;
+
+    if(gameState!=="playing"){ // frags blijven bewegen op menu
+      stepFrags(dt0); floaters.forEach(f=>{f.y-=18*dt0;f.life-=dt0*1.3;}); floaters=floaters.filter(f=>f.life>0); return;
+    }
+    const dt=dt0*speed;
+
+    // spawnen
+    if(waveActive){
+      spawnTimer+=dt;
+      while(spawnQueue.length && spawnTimer>=spawnQueue[0].delay){ const s=spawnQueue.shift(); spawnEnemy(s.boss); }
+    }
+
+    // vijanden
+    for(const e of enemies){
+      e.f -= e.speed*dt; e.rot += e.vr*dt;
+      if(e.f<=0.0){
+        core.hp -= e.dmg*(1-T.armor); e.dead=true; shake=Math.max(shake,7);
+        floaters.push({x:arenaCX,y:arenaCY,text:"-"+Math.round(e.dmg*(1-T.armor)),life:0.8,col:"#ff5c5c",sz:14});
+      }
+    }
+    enemies=enemies.filter(e=>!e.dead);
+
+    // regen
+    if(T.regen>0 && core.hp<core.max) core.hp=Math.min(core.max, core.hp+T.regen*dt);
+
+    // vuren
+    fireCd-=dt;
+    if(fireCd<=0){ fire(); fireCd = 1/T.rate; }
+    // schokgolf
+    if(T.nova>0){ novaCd-=dt; if(novaCd<=0) doNova(); }
+
+    // projectielen
+    stepProjectiles(dt);
+    stepFrags(dt0);
+
+    // floaters
+    for(const f of floaters){ f.y-=22*dt0; f.life-=dt0*1.3; }
+    floaters=floaters.filter(f=>f.life>0);
+
+    // golf klaar?
+    if(waveActive && spawnQueue.length===0 && enemies.length===0){
+      waveActive=false;
+      const bonus = Math.round(T.perwave + cash*T.interest);
+      cash += bonus;
+      floaters.push({x:arenaCX,y:arenaCY-arenaR*0.5,text:"Golf "+wave+" · +$"+bonus,life:1.4,col:"#5cff9e",sz:15});
+      wave++; waveGap=1.1;
+    }
+    if(!waveActive){ waveGap-=dt; if(waveGap<=0) startWave(); }
+
+    if(core.hp<=0){ core.hp=0; endGame(); }
+    updateHUD();
+  }
+  function stepProjectiles(dt){
+    const live=[];
+    for(const p of projectiles){
+      if(p.frag) continue;
+      const t=p.target;
+      if(!t || t.dead || t.hp<=0 || !enemies.includes(t)){ continue; }
+      const tp=ePos(t); const dx=tp.x-p.x, dy=tp.y-p.y, d=Math.hypot(dx,dy), step=p.speed*dt;
+      if(d<=step+6){ damageEnemy(t,p.dmg,p.crit); }
+      else { p.px=p.x; p.py=p.y; p.x+=dx/d*step; p.y+=dy/d*step; live.push(p); }
+    }
+    for(const p of projectiles){ if(p.frag) live.push(p); }
+    projectiles=live;
+  }
+  function stepFrags(dt){
+    for(const p of projectiles){ if(!p.frag) continue; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.92; p.vy*=0.92; p.life-=dt*2; }
+    projectiles=projectiles.filter(p=>!p.frag || p.life>0);
+  }
+
+  function endGame(){
+    gameState="over";
+    if(wave-1>best){ best=wave-1; try{localStorage.setItem("nova_best",String(best));}catch(e){} }
+    el("overWave").textContent="Golf "+(wave);
+    el("overMsg").textContent="Je kern hield "+(wave)+" golven stand. Beste: golf "+Math.max(best,wave)+".";
+    el("over").classList.remove("hidden");
+  }
+
+  // ---------- render ----------
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    // achtergrond nevel
+    const g=ctx.createRadialGradient(arenaCX,arenaCY,arenaR*0.1,arenaCX,arenaCY,arenaR*1.8);
+    g.addColorStop(0,"#1e1030"); g.addColorStop(0.5,"#140a24"); g.addColorStop(1,"#0a0714");
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H-panelH+2);
+    // embers
+    for(const e of embers){ const y=e.y*(H-panelH); ctx.globalAlpha=0.4+0.4*Math.sin(e.tw);
+      ctx.fillStyle="#ffcf5c"; ctx.beginPath(); ctx.arc(e.x*W, y, e.s,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+
+    const sx=(Math.random()-0.5)*shake, sy=(Math.random()-0.5)*shake;
+    ctx.save(); ctx.translate(sx,sy);
+
+    // bereik-ring
+    ctx.strokeStyle="rgba(255,207,92,.25)"; ctx.lineWidth=2; ctx.setLineDash([5,7]); ctx.lineDashOffset=-time*10;
+    ctx.beginPath(); ctx.arc(arenaCX,arenaCY, T.range?T.range*arenaR:arenaR*0.46,0,7); ctx.stroke(); ctx.setLineDash([]);
+
+    // projectielen / frags
+    for(const p of projectiles){
+      if(p.frag){ ctx.globalAlpha=Math.max(0,p.life*2); ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,7); ctx.fill(); }
+      else { ctx.globalAlpha=1; if(p.px!==undefined){ ctx.strokeStyle=p.crit?"#ffcf5c":"#fff7e0"; ctx.lineWidth=p.crit?4:2.5; ctx.beginPath(); ctx.moveTo(p.px,p.py); ctx.lineTo(p.x,p.y); ctx.stroke(); }
+        ctx.fillStyle="#fff"; ctx.shadowColor="#ffcf5c"; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(p.x,p.y,p.crit?4:3,0,7); ctx.fill(); ctx.shadowBlur=0; }
+    }
+    ctx.globalAlpha=1;
+
+    // vijanden
+    for(const e of enemies){ drawEnemy(e); }
+
+    // kern
+    drawCore();
+
+    // floaters
+    for(const f of floaters){ ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));
+      ctx.font="900 "+f.sz+"px sans-serif"; ctx.textAlign="center"; ctx.lineWidth=3; ctx.strokeStyle="rgba(0,0,0,.5)"; ctx.fillStyle=f.col;
+      ctx.strokeText(f.text,f.x,f.y); ctx.fillText(f.text,f.x,f.y); }
+    ctx.globalAlpha=1;
+
+    ctx.restore();
+
+    // kern-HP balk onder arena
+    const barW=Math.min(W*0.7,320), barX=(W-barW)/2, barY=H-panelH-24;
+    ctx.fillStyle="rgba(0,0,0,.5)"; ctx.fillRect(barX,barY,barW,12);
+    const hpf=core.max?Math.max(0,core.hp/core.max):0;
+    const hg=ctx.createLinearGradient(barX,0,barX+barW,0); hg.addColorStop(0,"#ff5c7a"); hg.addColorStop(1,"#ff9e5c");
+    ctx.fillStyle=hg; ctx.fillRect(barX,barY,barW*hpf,12);
+    ctx.strokeStyle="rgba(255,255,255,.3)"; ctx.lineWidth=1; ctx.strokeRect(barX,barY,barW,12);
+  }
+
+  function drawCore(){
+    const r=arenaR*0.13*(1+pulse*0.12);
+    ctx.save(); ctx.translate(arenaCX,arenaCY);
+    // aura
+    const ag=ctx.createRadialGradient(0,0,r*0.3,0,0,r*2.4);
+    ag.addColorStop(0,"rgba(255,207,92,.5)"); ag.addColorStop(1,"rgba(255,207,92,0)");
+    ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(0,0,r*2.4,0,7); ctx.fill();
+    // roterende ringen
+    for(let i=0;i<2;i++){ ctx.save(); ctx.rotate(time*(i?-0.8:1.2)+i);
+      ctx.strokeStyle=i?"rgba(123,247,255,.8)":"rgba(255,207,92,.9)"; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(0,0,r*(1.5+i*0.5), 0.3, Math.PI*1.1); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,r*(1.5+i*0.5), Math.PI+0.3, Math.PI*2.0); ctx.stroke(); ctx.restore(); }
+    // kern-orb
+    ctx.shadowColor="#ffcf5c"; ctx.shadowBlur=24;
+    const cg=ctx.createRadialGradient(-r*0.3,-r*0.3,r*0.1,0,0,r);
+    cg.addColorStop(0,"#fff6dc"); cg.addColorStop(0.6,"#ffcf5c"); cg.addColorStop(1,"#ff9b3d");
+    ctx.fillStyle=cg; ctx.beginPath(); ctx.arc(0,0,r,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawEnemy(e){
+    const p=ePos(e); const r=(e.boss?arenaR*0.075:arenaR*0.035);
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(e.rot);
+    ctx.shadowColor=e.color; ctx.shadowBlur=10; ctx.fillStyle=e.color; ctx.strokeStyle="#fff"; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    if(e.kind==="tri"){ for(let i=0;i<3;i++){ const a=i/3*Math.PI*2-Math.PI/2; ctx[i?'lineTo':'moveTo'](Math.cos(a)*r,Math.sin(a)*r);} }
+    else if(e.kind==="square"){ ctx.rect(-r*0.8,-r*0.8,r*1.6,r*1.6); }
+    else if(e.kind==="boss"){ for(let i=0;i<8;i++){ const rr=i%2?r:r*0.5; const a=i/8*Math.PI*2; ctx[i?'lineTo':'moveTo'](Math.cos(a)*rr,Math.sin(a)*rr);} }
+    else { ctx.moveTo(0,-r); ctx.lineTo(r*0.8,0); ctx.lineTo(0,r); ctx.lineTo(-r*0.8,0); } // diamond
+    ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.restore();
+    // hp-balk
+    if(e.hp<e.maxHp){ const bw=r*2.2; ctx.fillStyle="rgba(0,0,0,.5)"; ctx.fillRect(p.x-bw/2,p.y-r-7,bw,3);
+      ctx.fillStyle="#5cff9e"; ctx.fillRect(p.x-bw/2,p.y-r-7,bw*Math.max(0,e.hp/e.maxHp),3); }
+  }
+
+  function frame(now){ const t=now/1000; let dt=lastT?t-lastT:0; lastT=t; dt=Math.min(dt,0.05);
+    update(dt); render(); requestAnimationFrame(frame); }
+
+  el("startBtn").addEventListener("click",()=>{ el("start").classList.add("hidden"); reset(); });
+  el("retryBtn").addEventListener("click",()=>{ el("over").classList.add("hidden"); reset(); });
+
+  // init menu preview
+  lv={}; ALL.forEach(u=>lv[u.key]=0); recompute(); core.hp=core.max=100;
+  buildPanel();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
