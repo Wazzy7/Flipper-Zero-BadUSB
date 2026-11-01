@@ -48,12 +48,17 @@ Je kunt een power-up ook activeren door 'm in een gewone match mee te nemen.
 
 ## Levels
 
-- Haal de **doelscore** binnen je aantal zetten. Lukt dat, dan verschijnt een
-  **level-voltooid-scherm** met een **zetten-bonus** (overgebleven zetten leveren
-  extra punten op) en het volgende doel.
-- Elk level heeft een hogere doelscore en iets meer zetten.
-- Raak je zonder het doel te halen door je zetten heen, dan is het game over. Je
-  topscore wordt lokaal bewaard.
+- Elk level moet je de **doelscore** halen binnen je aantal zetten. De
+  levelscore begint elk level weer op **0**, dus je moet het doel telkens
+  opnieuw verdienen — en het doel groeit elk level (×1,5: 1.200 → 1.800 →
+  2.700 → …), terwijl je er maar iets meer zetten bij krijgt. Zo wordt het
+  level na level moeilijker.
+- Lukt het, dan verschijnt een **level-voltooid-scherm** met een
+  **zetten-bonus** (overgebleven zetten leveren extra punten op), je
+  **totaalscore** en het volgende doel.
+- Raak je zonder het doel te halen door je zetten heen, dan is het game over.
+  Je **totaalscore** over alle levels telt, en je topscore wordt lokaal
+  bewaard.
 
 ## Visuele effecten
 

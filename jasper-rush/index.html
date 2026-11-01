@@ -159,7 +159,8 @@
   // ---------- state ----------
   let grid=null, cellMult=null, particles=[], floaters=[];
   let phase="idle", phaseT=0, selected=null, swapPair=null, comboMult=1, pendingJasperCols=[];
-  let score=0, target=0, movesLeft=0, level=1, best=0, gameState="menu";
+  let score=0, total=0, target=0, movesLeft=0, level=1, best=0, gameState="menu";
+  const targetFor = (lv) => Math.round(1200 * Math.pow(1.5, lv-1));
   let shake=0, jasperRush=0, flash=0, beams=[], shocks=[], ambient=[];
   let time=0, lastT=0;
 
@@ -195,7 +196,8 @@
 
   function startLevel(lv){
     level=lv;
-    target = Math.round(1500 * Math.pow(1.6, lv-1));
+    score = 0;                       // levelscore reset elk level
+    target = targetFor(lv);
     movesLeft = 18 + (lv-1)*2;
     newBoard();
     comboMult=1; phase="idle"; phaseT=0; selected=null; swapPair=null; pendingJasperCols=[];
@@ -203,7 +205,7 @@
     updateHUD();
   }
   function reset(){
-    score=0; gameState="playing";
+    total=0; score=0; gameState="playing";
     startLevel(1);
   }
 
@@ -250,7 +252,7 @@
   function scoreCell(r,c,mult){
     const base=10;
     const gained = base * comboMult * cellMult[r][c] * mult;
-    score += gained;
+    score += gained; total += gained;
     if(cellMult[r][c] < 128) cellMult[r][c] = Math.min(128, cellMult[r][c]*2);
     return gained;
   }
@@ -390,9 +392,8 @@
   function levelComplete(){
     gameState="levelup";
     const bonus = movesLeft*120*level;
-    score += bonus;
-    if(score>best){ best=score; try{localStorage.setItem("jasper_best",String(Math.floor(best)));}catch(e){} }
-    updateHUD();
+    total += bonus;                  // bonus telt mee in de totaalscore
+    if(total>best){ best=total; try{localStorage.setItem("jasper_best",String(Math.floor(best)));}catch(e){} }
     flash=0.55; shake=12;
     // confetti
     for(let i=0;i<70;i++){
@@ -401,17 +402,17 @@
     }
     el("luLevel").textContent = "Level "+level+" voltooid!";
     el("luBonus").textContent = "+"+Math.floor(bonus)+" zetten-bonus";
-    el("luNext").textContent = "Volgend doel: "+Math.round(1500*Math.pow(1.6,level)).toLocaleString("nl-NL");
+    el("luNext").textContent = "Totaal: "+Math.floor(total).toLocaleString("nl-NL")+" · volgend doel: "+targetFor(level+1).toLocaleString("nl-NL");
     el("luBtn").textContent = "Level "+(level+1)+" ▶";
     el("levelup").classList.remove("hidden");
   }
 
   function endGame(){
     gameState="over";
-    if(score>best){ best=score; try{localStorage.setItem("jasper_best",String(Math.floor(best)));}catch(e){} }
+    if(total>best){ best=total; try{localStorage.setItem("jasper_best",String(Math.floor(best)));}catch(e){} }
     el("overTitle").innerHTML = "Game <span class='b'>over</span>";
-    el("overScore").textContent = Math.floor(score);
-    el("overMsg").textContent = "Je haalde level "+level+" niet helemaal. Topscore: "+Math.floor(best);
+    el("overScore").textContent = Math.floor(total);
+    el("overMsg").textContent = "Je strandde op level "+level+" ("+Math.floor(score)+" / "+target+"). Topscore: "+Math.floor(best);
     el("over").classList.remove("hidden");
   }
 
